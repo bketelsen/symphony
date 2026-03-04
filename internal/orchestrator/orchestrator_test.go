@@ -11,6 +11,17 @@ import (
 	"github.com/bjk/symphony/internal/domain"
 )
 
+// noopTracker returns empty results for all calls.
+type noopTracker struct{}
+
+func (noopTracker) FetchCandidateIssues(_ context.Context) ([]domain.Issue, error) { return nil, nil }
+func (noopTracker) FetchIssueStatesByIDs(_ context.Context, _ []string) ([]domain.Issue, error) {
+	return nil, nil
+}
+func (noopTracker) FetchIssuesByStates(_ context.Context, _ []string) ([]domain.Issue, error) {
+	return nil, nil
+}
+
 func testDeps() Deps {
 	cfg := &config.Config{
 		Polling: config.PollingConfig{IntervalMs: 100},
@@ -18,8 +29,9 @@ func testDeps() Deps {
 		Claude:  config.ClaudeConfig{StallTimeoutMs: 300000},
 	}
 	return Deps{
-		Config: func() (*config.Config, string) { return cfg, "prompt" },
-		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Tracker: noopTracker{},
+		Config:  func() (*config.Config, string) { return cfg, "prompt" },
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 }
 

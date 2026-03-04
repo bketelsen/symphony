@@ -1,0 +1,44 @@
+[
+  {
+    "id": "I_abc123",
+    "number": 1,
+    "title": "Fix login bug",
+    "body": "Login is broken.\nblocked by #5",
+    "state": "open",
+    "url": "https://github.com/owner/repo/issues/1",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "updatedAt": "2026-01-02T00:00:00Z",
+    "labels": [
+      {"name": "symphony:todo"},
+      {"name": "P1"},
+      {"name": "bug"}
+    ]
+  },
+  {
+    "id": "I_def456",
+    "number": 2,
+    "title": "Add feature X",
+    "body": "We need feature X.",
+    "state": "open",
+    "url": "https://github.com/owner/repo/issues/2",
+    "createdAt": "2026-01-03T00:00:00Z",
+    "updatedAt": "2026-01-03T00:00:00Z",
+    "labels": [
+      {"name": "symphony:todo"},
+      {"name": "P2"}
+    ]
+  },
+  {
+    "id": "I_ghi789",
+    "number": 3,
+    "title": "No priority issue",
+    "body": "",
+    "state": "open",
+    "url": "https://github.com/owner/repo/issues/3",
+    "createdAt": "2026-01-02T00:00:00Z",
+    "updatedAt": "2026-01-02T00:00:00Z",
+    "labels": [
+      {"name": "symphony:todo"}
+    ]
+  }
+]

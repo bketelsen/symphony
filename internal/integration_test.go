@@ -15,6 +15,7 @@ import (
 	"github.com/bjk/symphony/internal/config"
 	"github.com/bjk/symphony/internal/domain"
 	"github.com/bjk/symphony/internal/orchestrator"
+	"github.com/bjk/symphony/internal/tracker"
 	"github.com/bjk/symphony/internal/web"
 	"github.com/bjk/symphony/internal/workspace"
 )
@@ -44,6 +45,10 @@ func (s *stubTracker) FetchIssuesByStates(_ context.Context, _ []string) ([]doma
 func (s *stubTracker) AddLabel(_ context.Context, _ int, _ string) error    { return nil }
 func (s *stubTracker) RemoveLabel(_ context.Context, _ int, _ string) error { return nil }
 func (s *stubTracker) MarkPRReady(_ context.Context, _ int) error           { return nil }
+func (s *stubTracker) GetPRStatus(_ context.Context, _ int) (*tracker.PRStatus, error) {
+	return &tracker.PRStatus{}, nil
+}
+func (s *stubTracker) CloseIssue(_ context.Context, _ int) error { return nil }
 
 type stubExecutor struct{}
 

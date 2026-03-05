@@ -11,6 +11,7 @@ import (
 
 	"github.com/bjk/symphony/internal/config"
 	"github.com/bjk/symphony/internal/domain"
+	"github.com/bjk/symphony/internal/tracker"
 )
 
 // mockProcess implements Process for testing.
@@ -66,6 +67,10 @@ func (m *mockTracker) FetchIssuesByStates(_ context.Context, _ []string) ([]doma
 func (m *mockTracker) AddLabel(_ context.Context, _ int, _ string) error    { return nil }
 func (m *mockTracker) RemoveLabel(_ context.Context, _ int, _ string) error { return nil }
 func (m *mockTracker) MarkPRReady(_ context.Context, _ int) error           { return nil }
+func (m *mockTracker) GetPRStatus(_ context.Context, _ int) (*tracker.PRStatus, error) {
+	return &tracker.PRStatus{}, nil
+}
+func (m *mockTracker) CloseIssue(_ context.Context, _ int) error { return nil }
 
 func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))

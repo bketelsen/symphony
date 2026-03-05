@@ -34,6 +34,7 @@ type OrchestratorState struct {
 	Claimed             map[string]struct{}
 	RetryAttempts       map[string]*domain.RetryEntry
 	Completed           map[string]struct{}
+	AwaitingMerge       map[string]*domain.AwaitingMergeEntry
 	AgentTotals         domain.AgentTotals
 	EventLog            []domain.EventLogEntry
 	StartedAt           time.Time
@@ -61,6 +62,7 @@ func New(deps Deps) *Orchestrator {
 			Claimed:             make(map[string]struct{}),
 			RetryAttempts:       make(map[string]*domain.RetryEntry),
 			Completed:           make(map[string]struct{}),
+			AwaitingMerge:       make(map[string]*domain.AwaitingMergeEntry),
 			StartedAt:           time.Now(),
 		},
 		deps:   deps,
@@ -86,6 +88,7 @@ func (o *Orchestrator) Snapshot() OrchestratorState {
 		Claimed:             maps.Clone(o.state.Claimed),
 		RetryAttempts:       copyRetryMap(o.state.RetryAttempts),
 		Completed:           maps.Clone(o.state.Completed),
+		AwaitingMerge:       copyAwaitingMergeMap(o.state.AwaitingMerge),
 		AgentTotals:         o.state.AgentTotals,
 		EventLog:            copyEventLog(o.state.EventLog),
 		StartedAt:           o.state.StartedAt,
@@ -224,6 +227,15 @@ func copyRunningMap(m map[string]*domain.RunningEntry) map[string]*domain.Runnin
 
 func copyRetryMap(m map[string]*domain.RetryEntry) map[string]*domain.RetryEntry {
 	out := make(map[string]*domain.RetryEntry, len(m))
+	for k, v := range m {
+		cp := *v
+		out[k] = &cp
+	}
+	return out
+}
+
+func copyAwaitingMergeMap(m map[string]*domain.AwaitingMergeEntry) map[string]*domain.AwaitingMergeEntry {
+	out := make(map[string]*domain.AwaitingMergeEntry, len(m))
 	for k, v := range m {
 		cp := *v
 		out[k] = &cp

@@ -48,6 +48,7 @@ type AgentConfig struct {
 	MaxConcurrentAgents int `yaml:"max_concurrent_agents"`
 	MaxTurns            int `yaml:"max_turns"`
 	MaxRetryBackoffMs   int `yaml:"max_retry_backoff_ms"`
+	IdleBeforeReadyMs   int `yaml:"idle_before_ready_ms"`
 }
 
 // ClaudeConfig configures the Claude CLI runner.
@@ -88,6 +89,9 @@ func (c *Config) ApplyDefaults() {
 	}
 	if c.Agent.MaxRetryBackoffMs == 0 {
 		c.Agent.MaxRetryBackoffMs = 300000
+	}
+	if c.Agent.IdleBeforeReadyMs == 0 {
+		c.Agent.IdleBeforeReadyMs = 60000
 	}
 	if c.Claude.Command == "" {
 		c.Claude.Command = "claude --print"

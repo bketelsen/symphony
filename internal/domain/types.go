@@ -143,6 +143,13 @@ func CalculateBackoff(attempt int, isContinuation bool, maxBackoffMs int) time.D
 	return time.Duration(ms) * time.Millisecond
 }
 
+// AwaitingMergeEntry tracks an issue whose PR has been undrafted, waiting for merge.
+type AwaitingMergeEntry struct {
+	IssueID    string
+	Identifier string
+	Number     int
+}
+
 // EventLogEntry records a notable event for the dashboard.
 type EventLogEntry struct {
 	Timestamp  time.Time

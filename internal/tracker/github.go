@@ -299,6 +299,56 @@ func (c *GitHubClient) MarkPRReady(ctx context.Context, issueNumber int) error {
 	return nil // no matching PR found — not an error
 }
 
+func (c *GitHubClient) GetPRStatus(ctx context.Context, issueNumber int) (*PRStatus, error) {
+	listArgs := []string{
+		"pr", "list",
+		"--repo", c.repo,
+		"--json", "number,headRefName,isDraft,state",
+		"--limit", "100",
+		"--state", "all",
+	}
+	out, err := c.runner.Run(ctx, listArgs)
+	if err != nil {
+		return nil, fmt.Errorf("tracker: list PRs: %w", err)
+	}
+
+	var prs []struct {
+		Number      int    `json:"number"`
+		HeadRefName string `json:"headRefName"`
+		IsDraft     bool   `json:"isDraft"`
+		State       string `json:"state"`
+	}
+	if err := json.Unmarshal(out, &prs); err != nil {
+		return nil, fmt.Errorf("tracker: parse PR list: %w", err)
+	}
+
+	issueStr := fmt.Sprintf("%d", issueNumber)
+	for _, pr := range prs {
+		if strings.Contains(pr.HeadRefName, "symphony/") && strings.Contains(pr.HeadRefName, issueStr) {
+			return &PRStatus{
+				Found:   true,
+				Number:  pr.Number,
+				IsDraft: pr.IsDraft,
+				Merged:  strings.EqualFold(pr.State, "MERGED"),
+			}, nil
+		}
+	}
+
+	return &PRStatus{Found: false}, nil
+}
+
+func (c *GitHubClient) CloseIssue(ctx context.Context, issueNumber int) error {
+	args := []string{
+		"issue", "close", fmt.Sprintf("%d", issueNumber),
+		"--repo", c.repo,
+	}
+	_, err := c.runner.Run(ctx, args)
+	if err != nil {
+		return fmt.Errorf("tracker: close issue: %w", err)
+	}
+	return nil
+}
+
 // mapStateFromLabels determines the symphony state from issue labels and GitHub state.
 func mapStateFromLabels(labels []string, ghState string, activeStates, terminalStates []string) string {
 	// Check terminal states first (higher precedence)

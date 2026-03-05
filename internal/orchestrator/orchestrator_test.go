@@ -9,6 +9,7 @@ import (
 
 	"github.com/bjk/symphony/internal/config"
 	"github.com/bjk/symphony/internal/domain"
+	"github.com/bjk/symphony/internal/tracker"
 )
 
 // noopTracker returns empty results for all calls.
@@ -24,6 +25,10 @@ func (noopTracker) FetchIssuesByStates(_ context.Context, _ []string) ([]domain.
 func (noopTracker) AddLabel(_ context.Context, _ int, _ string) error    { return nil }
 func (noopTracker) RemoveLabel(_ context.Context, _ int, _ string) error { return nil }
 func (noopTracker) MarkPRReady(_ context.Context, _ int) error           { return nil }
+func (noopTracker) GetPRStatus(_ context.Context, _ int) (*tracker.PRStatus, error) {
+	return &tracker.PRStatus{}, nil
+}
+func (noopTracker) CloseIssue(_ context.Context, _ int) error { return nil }
 
 func testDeps() Deps {
 	cfg := &config.Config{

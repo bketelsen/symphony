@@ -466,4 +466,157 @@ func (r *callTrackingRunner) Run(_ context.Context, args []string) ([]byte, erro
 	return nil, nil
 }
 
+func TestGetPRStatus(t *testing.T) {
+	t.Parallel()
+
+	prListJSON := `[
+		{"number": 5, "headRefName": "symphony/repo_42", "isDraft": true, "state": "OPEN"},
+		{"number": 8, "headRefName": "feature/unrelated", "isDraft": false, "state": "OPEN"},
+		{"number": 12, "headRefName": "symphony/repo_10", "isDraft": false, "state": "MERGED"}
+	]`
+
+	tests := []struct {
+		name        string
+		issueNumber int
+		prListJSON  string
+		wantFound   bool
+		wantDraft   bool
+		wantMerged  bool
+		wantNumber  int
+	}{
+		{
+			name:        "finds draft PR",
+			issueNumber: 42,
+			prListJSON:  prListJSON,
+			wantFound:   true,
+			wantDraft:   true,
+			wantMerged:  false,
+			wantNumber:  5,
+		},
+		{
+			name:        "finds merged PR",
+			issueNumber: 10,
+			prListJSON:  prListJSON,
+			wantFound:   true,
+			wantDraft:   false,
+			wantMerged:  true,
+			wantNumber:  12,
+		},
+		{
+			name:        "no matching PR",
+			issueNumber: 999,
+			prListJSON:  prListJSON,
+			wantFound:   false,
+		},
+		{
+			name:        "empty PR list",
+			issueNumber: 42,
+			prListJSON:  `[]`,
+			wantFound:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			runner := &mockRunner{output: []byte(tt.prListJSON)}
+			client := NewGitHubClient("owner/repo",
+				[]string{"symphony:todo"}, []string{"symphony:done"}, runner)
+
+			status, err := client.GetPRStatus(context.Background(), tt.issueNumber)
+			if err != nil {
+				t.Fatalf("GetPRStatus: %v", err)
+			}
+
+			if status.Found != tt.wantFound {
+				t.Errorf("Found = %v, want %v", status.Found, tt.wantFound)
+			}
+			if tt.wantFound {
+				if status.Number != tt.wantNumber {
+					t.Errorf("Number = %d, want %d", status.Number, tt.wantNumber)
+				}
+				if status.IsDraft != tt.wantDraft {
+					t.Errorf("IsDraft = %v, want %v", status.IsDraft, tt.wantDraft)
+				}
+				if status.Merged != tt.wantMerged {
+					t.Errorf("Merged = %v, want %v", status.Merged, tt.wantMerged)
+				}
+			}
+
+			// Verify correct gh args
+			if len(runner.calls) != 1 {
+				t.Fatalf("got %d calls, want 1", len(runner.calls))
+			}
+			args := runner.calls[0]
+			if args[0] != "pr" || args[1] != "list" {
+				t.Errorf("unexpected command: %v", args[:2])
+			}
+			// Should use --state all to find merged PRs too
+			foundStateAll := false
+			for i, a := range args {
+				if a == "--state" && i+1 < len(args) && args[i+1] == "all" {
+					foundStateAll = true
+				}
+			}
+			if !foundStateAll {
+				t.Error("expected --state all in args")
+			}
+		})
+	}
+}
+
+func TestGetPRStatusError(t *testing.T) {
+	t.Parallel()
+
+	runner := &mockRunner{err: fmt.Errorf("gh error")}
+	client := NewGitHubClient("owner/repo",
+		[]string{"symphony:todo"}, []string{"symphony:done"}, runner)
+
+	_, err := client.GetPRStatus(context.Background(), 42)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestCloseIssue(t *testing.T) {
+	t.Parallel()
+
+	runner := &mockRunner{}
+	client := NewGitHubClient("owner/repo",
+		[]string{"symphony:todo"}, []string{"symphony:done"}, runner)
+
+	err := client.CloseIssue(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("CloseIssue: %v", err)
+	}
+
+	if len(runner.calls) != 1 {
+		t.Fatalf("got %d calls, want 1", len(runner.calls))
+	}
+	wantArgs := []string{"issue", "close", "42", "--repo", "owner/repo"}
+	got := runner.calls[0]
+	if len(got) != len(wantArgs) {
+		t.Fatalf("got args %v, want %v", got, wantArgs)
+	}
+	for i, want := range wantArgs {
+		if got[i] != want {
+			t.Errorf("args[%d] = %q, want %q", i, got[i], want)
+		}
+	}
+}
+
+func TestCloseIssueError(t *testing.T) {
+	t.Parallel()
+
+	runner := &mockRunner{err: fmt.Errorf("gh error")}
+	client := NewGitHubClient("owner/repo",
+		[]string{"symphony:todo"}, []string{"symphony:done"}, runner)
+
+	err := client.CloseIssue(context.Background(), 42)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
 func intPtr(v int) *int { return &v }

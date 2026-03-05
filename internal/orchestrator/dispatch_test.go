@@ -12,14 +12,20 @@ import (
 	"github.com/bjk/symphony/internal/agent"
 	"github.com/bjk/symphony/internal/config"
 	"github.com/bjk/symphony/internal/domain"
+	"github.com/bjk/symphony/internal/tracker"
 	"github.com/bjk/symphony/internal/workspace"
 )
 
-// mockTracker for dispatch tests
+// mockTracker for dispatch and reconcile tests.
 type mockTracker struct {
-	candidates []domain.Issue
-	statesByID map[string]domain.Issue
-	err        error
+	candidates     []domain.Issue
+	statesByID     map[string]domain.Issue
+	err            error
+	prStatus       *tracker.PRStatus
+	prStatusErr    error
+	markReadyCalls []int
+	addLabelCalls  []string
+	closeCalls     []int
 }
 
 func (m *mockTracker) FetchCandidateIssues(_ context.Context) ([]domain.Issue, error) {
@@ -37,9 +43,26 @@ func (m *mockTracker) FetchIssueStatesByIDs(_ context.Context, ids []string) ([]
 func (m *mockTracker) FetchIssuesByStates(_ context.Context, _ []string) ([]domain.Issue, error) {
 	return nil, nil
 }
-func (m *mockTracker) AddLabel(_ context.Context, _ int, _ string) error    { return nil }
+func (m *mockTracker) AddLabel(_ context.Context, num int, label string) error {
+	m.addLabelCalls = append(m.addLabelCalls, label)
+	_ = num
+	return nil
+}
 func (m *mockTracker) RemoveLabel(_ context.Context, _ int, _ string) error { return nil }
-func (m *mockTracker) MarkPRReady(_ context.Context, _ int) error           { return nil }
+func (m *mockTracker) MarkPRReady(_ context.Context, num int) error {
+	m.markReadyCalls = append(m.markReadyCalls, num)
+	return nil
+}
+func (m *mockTracker) GetPRStatus(_ context.Context, _ int) (*tracker.PRStatus, error) {
+	if m.prStatus != nil {
+		return m.prStatus, m.prStatusErr
+	}
+	return &tracker.PRStatus{}, m.prStatusErr
+}
+func (m *mockTracker) CloseIssue(_ context.Context, num int) error {
+	m.closeCalls = append(m.closeCalls, num)
+	return nil
+}
 
 // mockExecutor for workspace
 type mockExecutor struct{}

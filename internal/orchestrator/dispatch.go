@@ -48,6 +48,9 @@ func (o *Orchestrator) filterCandidates(issues []domain.Issue) []domain.Issue {
 		if _, completed := o.state.Completed[issue.ID]; completed {
 			continue
 		}
+		if _, awaiting := o.state.AwaitingMerge[issue.ID]; awaiting {
+			continue
+		}
 		if issue.IsBlocked(o.state.Completed) {
 			continue
 		}

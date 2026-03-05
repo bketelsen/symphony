@@ -67,11 +67,23 @@ func (m *Manager) WorkspacePath(key string) (string, error) {
 }
 
 // Setup clones a bare repo at <root>/.bare if not already present.
+// If a bare repo already exists, it verifies the remote URL matches.
 func (m *Manager) Setup(ctx context.Context) error {
 	bareDir := filepath.Join(m.root, ".bare")
 
 	if info, err := os.Stat(bareDir); err == nil && info.IsDir() {
-		return nil // already set up
+		// Verify the existing bare clone is for the correct repo
+		out, err := m.executor.RunCommand(ctx, bareDir,
+			"git", "config", "--get", "remote.origin.url")
+		if err != nil {
+			return fmt.Errorf("workspace: check bare repo remote: %w", err)
+		}
+		existingURL := strings.TrimSpace(string(out))
+		if existingURL != m.repoURL {
+			return fmt.Errorf("workspace: bare clone at %s is for %q, not %q; remove it or use a different workspace.root",
+				bareDir, existingURL, m.repoURL)
+		}
+		return nil
 	}
 
 	if err := os.MkdirAll(m.root, 0755); err != nil {

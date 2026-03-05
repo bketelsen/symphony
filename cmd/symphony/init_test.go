@@ -216,6 +216,29 @@ func TestInitWorkflow_CustomWorkspaceRoot(t *testing.T) {
 	}
 }
 
+func TestInitWorkflow_NamespacedWorkspaceRoot(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	mock := &mockInitRunner{handler: happyHandler}
+	var buf bytes.Buffer
+	opts := initOptions{
+		WorkspaceRoot: "", // empty means auto-namespace
+	}
+
+	err := initWorkflow(context.Background(), mock, opts, &buf)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	content, err := os.ReadFile("WORKFLOW.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), "root: /tmp/symphony_workspaces/testowner_testrepo") {
+		t.Errorf("WORKFLOW.md should have namespaced workspace root, got:\n%s", content)
+	}
+}
+
 func TestIntrospectRepo_DefaultBranchFallback(t *testing.T) {
 	mock := &mockInitRunner{
 		handler: func(args []string) ([]byte, error) {

@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
 type mockExecutor struct {
-	calls []mockCall
-	err   error
+	calls   []mockCall
+	err     error
+	handler func(dir, name string, args []string) ([]byte, error) // optional per-call handler
 }
 
 type mockCall struct {
@@ -21,6 +23,9 @@ type mockCall struct {
 
 func (m *mockExecutor) RunCommand(_ context.Context, dir string, name string, args ...string) ([]byte, error) {
 	m.calls = append(m.calls, mockCall{Dir: dir, Name: name, Args: args})
+	if m.handler != nil {
+		return m.handler(dir, name, args)
+	}
 	return nil, m.err
 }
 
@@ -113,7 +118,12 @@ func TestSetupBareClone(t *testing.T) {
 func TestSetupSkipsExistingBare(t *testing.T) {
 	t.Parallel()
 
-	exec := &mockExecutor{}
+	exec := &mockExecutor{
+		handler: func(dir, name string, args []string) ([]byte, error) {
+			// Return the matching remote URL
+			return []byte("git@github.com:o/r.git\n"), nil
+		},
+	}
 	root := t.TempDir()
 	os.MkdirAll(filepath.Join(root, ".bare"), 0755)
 
@@ -123,8 +133,38 @@ func TestSetupSkipsExistingBare(t *testing.T) {
 		t.Fatalf("Setup: %v", err)
 	}
 
-	if len(exec.calls) != 0 {
-		t.Errorf("got %d calls, want 0 (should skip)", len(exec.calls))
+	// Should call git config to verify remote, but not clone
+	if len(exec.calls) != 1 {
+		t.Fatalf("got %d calls, want 1 (remote check only)", len(exec.calls))
+	}
+	if exec.calls[0].Args[0] != "config" {
+		t.Errorf("expected git config call, got %v", exec.calls[0].Args)
+	}
+}
+
+func TestSetupRejectsMismatchedBare(t *testing.T) {
+	t.Parallel()
+
+	exec := &mockExecutor{
+		handler: func(dir, name string, args []string) ([]byte, error) {
+			// Return a different remote URL
+			return []byte("git@github.com:other/repo.git\n"), nil
+		},
+	}
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, ".bare"), 0755)
+
+	m := NewManager(root, "git@github.com:o/r.git", "main", exec)
+
+	err := m.Setup(context.Background())
+	if err == nil {
+		t.Fatal("expected error for mismatched bare clone, got nil")
+	}
+	if !strings.Contains(err.Error(), "other/repo.git") {
+		t.Errorf("error should mention existing URL, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "o/r.git") {
+		t.Errorf("error should mention expected URL, got: %v", err)
 	}
 }
 

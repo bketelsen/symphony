@@ -47,7 +47,7 @@ type initOptions struct {
 func runInit(args []string, stdout, stderr *os.File) error {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	workspaceRoot := fs.String("workspace-root", "/tmp/symphony_workspaces", "root directory for worktree workspaces")
+	workspaceRoot := fs.String("workspace-root", "", "root directory for worktree workspaces (default: /tmp/symphony_workspaces/<owner_repo>)")
 	force := fs.Bool("force", false, "overwrite existing WORKFLOW.md")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -81,8 +81,14 @@ func initWorkflow(ctx context.Context, runner tracker.CommandRunner, opts initOp
 	fmt.Fprintf(w, "SSH URL:    %s\n", repo.SSHUrl)
 	fmt.Fprintf(w, "Branch:     %s\n", repo.DefaultBranch)
 
+	// Namespace workspace root by repo to prevent cross-repo collisions
+	wsRoot := opts.WorkspaceRoot
+	if wsRoot == "" {
+		wsRoot = "/tmp/symphony_workspaces/" + strings.ReplaceAll(repoSlug, "/", "_")
+	}
+
 	// Generate and write WORKFLOW.md
-	content := generateWorkflow(repoSlug, repo.SSHUrl, repo.DefaultBranch, opts.WorkspaceRoot)
+	content := generateWorkflow(repoSlug, repo.SSHUrl, repo.DefaultBranch, wsRoot)
 	if err := os.WriteFile("WORKFLOW.md", []byte(content), 0644); err != nil {
 		return fmt.Errorf("write WORKFLOW.md: %w", err)
 	}

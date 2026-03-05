@@ -41,6 +41,9 @@ func (s *stubTracker) FetchIssueStatesByIDs(_ context.Context, ids []string) ([]
 func (s *stubTracker) FetchIssuesByStates(_ context.Context, _ []string) ([]domain.Issue, error) {
 	return nil, nil
 }
+func (s *stubTracker) AddLabel(_ context.Context, _ int, _ string) error    { return nil }
+func (s *stubTracker) RemoveLabel(_ context.Context, _ int, _ string) error { return nil }
+func (s *stubTracker) MarkPRReady(_ context.Context, _ int) error           { return nil }
 
 type stubExecutor struct{}
 

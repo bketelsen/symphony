@@ -218,6 +218,73 @@ func extractBlockers(body string, repo string) []domain.BlockerRef {
 	return refs
 }
 
+func (c *GitHubClient) AddLabel(ctx context.Context, issueNumber int, label string) error {
+	args := []string{
+		"issue", "edit", fmt.Sprintf("%d", issueNumber),
+		"--repo", c.repo,
+		"--add-label", label,
+	}
+	_, err := c.runner.Run(ctx, args)
+	if err != nil {
+		return fmt.Errorf("tracker: add label: %w", err)
+	}
+	return nil
+}
+
+func (c *GitHubClient) RemoveLabel(ctx context.Context, issueNumber int, label string) error {
+	args := []string{
+		"issue", "edit", fmt.Sprintf("%d", issueNumber),
+		"--repo", c.repo,
+		"--remove-label", label,
+	}
+	_, err := c.runner.Run(ctx, args)
+	if err != nil {
+		return fmt.Errorf("tracker: remove label: %w", err)
+	}
+	return nil
+}
+
+func (c *GitHubClient) MarkPRReady(ctx context.Context, issueNumber int) error {
+	// Find PR by issue number — convention is branch name contains the issue number
+	listArgs := []string{
+		"pr", "list",
+		"--repo", c.repo,
+		"--json", "number,headRefName",
+		"--limit", "100",
+		"--state", "open",
+	}
+	out, err := c.runner.Run(ctx, listArgs)
+	if err != nil {
+		return fmt.Errorf("tracker: list PRs: %w", err)
+	}
+
+	var prs []struct {
+		Number      int    `json:"number"`
+		HeadRefName string `json:"headRefName"`
+	}
+	if err := json.Unmarshal(out, &prs); err != nil {
+		return fmt.Errorf("tracker: parse PR list: %w", err)
+	}
+
+	// Find PR with branch matching symphony/<key> pattern containing issue number
+	issueStr := fmt.Sprintf("%d", issueNumber)
+	for _, pr := range prs {
+		if strings.Contains(pr.HeadRefName, "symphony/") && strings.Contains(pr.HeadRefName, issueStr) {
+			readyArgs := []string{
+				"pr", "ready", fmt.Sprintf("%d", pr.Number),
+				"--repo", c.repo,
+			}
+			_, err := c.runner.Run(ctx, readyArgs)
+			if err != nil {
+				return fmt.Errorf("tracker: mark PR ready: %w", err)
+			}
+			return nil
+		}
+	}
+
+	return nil // no matching PR found — not an error
+}
+
 // mapStateFromLabels determines the symphony state from issue labels and GitHub state.
 func mapStateFromLabels(labels []string, ghState string, activeStates, terminalStates []string) string {
 	// Check terminal states first (higher precedence)

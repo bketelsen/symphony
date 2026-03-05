@@ -230,4 +230,240 @@ func TestParseIssueNilDescription(t *testing.T) {
 	}
 }
 
+func TestAddLabel(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		issueNumber int
+		label       string
+		wantArgs    []string
+	}{
+		{
+			name:        "adds label to issue",
+			issueNumber: 42,
+			label:       "symphony:in-progress",
+			wantArgs:    []string{"issue", "edit", "42", "--repo", "owner/repo", "--add-label", "symphony:in-progress"},
+		},
+		{
+			name:        "different issue and label",
+			issueNumber: 7,
+			label:       "symphony:done",
+			wantArgs:    []string{"issue", "edit", "7", "--repo", "owner/repo", "--add-label", "symphony:done"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			runner := &mockRunner{}
+			client := NewGitHubClient("owner/repo",
+				[]string{"symphony:todo"}, []string{"symphony:done"}, runner)
+
+			err := client.AddLabel(context.Background(), tt.issueNumber, tt.label)
+			if err != nil {
+				t.Fatalf("AddLabel: %v", err)
+			}
+
+			if len(runner.calls) != 1 {
+				t.Fatalf("got %d calls, want 1", len(runner.calls))
+			}
+			got := runner.calls[0]
+			if len(got) != len(tt.wantArgs) {
+				t.Fatalf("got args %v, want %v", got, tt.wantArgs)
+			}
+			for i, want := range tt.wantArgs {
+				if got[i] != want {
+					t.Errorf("args[%d] = %q, want %q", i, got[i], want)
+				}
+			}
+		})
+	}
+}
+
+func TestAddLabelError(t *testing.T) {
+	t.Parallel()
+
+	runner := &mockRunner{err: fmt.Errorf("gh error")}
+	client := NewGitHubClient("owner/repo",
+		[]string{"symphony:todo"}, []string{"symphony:done"}, runner)
+
+	err := client.AddLabel(context.Background(), 1, "label")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestRemoveLabel(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		issueNumber int
+		label       string
+		wantArgs    []string
+	}{
+		{
+			name:        "removes label from issue",
+			issueNumber: 42,
+			label:       "symphony:todo",
+			wantArgs:    []string{"issue", "edit", "42", "--repo", "owner/repo", "--remove-label", "symphony:todo"},
+		},
+		{
+			name:        "different issue and label",
+			issueNumber: 10,
+			label:       "symphony:in-progress",
+			wantArgs:    []string{"issue", "edit", "10", "--repo", "owner/repo", "--remove-label", "symphony:in-progress"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			runner := &mockRunner{}
+			client := NewGitHubClient("owner/repo",
+				[]string{"symphony:todo"}, []string{"symphony:done"}, runner)
+
+			err := client.RemoveLabel(context.Background(), tt.issueNumber, tt.label)
+			if err != nil {
+				t.Fatalf("RemoveLabel: %v", err)
+			}
+
+			if len(runner.calls) != 1 {
+				t.Fatalf("got %d calls, want 1", len(runner.calls))
+			}
+			got := runner.calls[0]
+			if len(got) != len(tt.wantArgs) {
+				t.Fatalf("got args %v, want %v", got, tt.wantArgs)
+			}
+			for i, want := range tt.wantArgs {
+				if got[i] != want {
+					t.Errorf("args[%d] = %q, want %q", i, got[i], want)
+				}
+			}
+		})
+	}
+}
+
+func TestRemoveLabelError(t *testing.T) {
+	t.Parallel()
+
+	runner := &mockRunner{err: fmt.Errorf("gh error")}
+	client := NewGitHubClient("owner/repo",
+		[]string{"symphony:todo"}, []string{"symphony:done"}, runner)
+
+	err := client.RemoveLabel(context.Background(), 1, "label")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestMarkPRReady(t *testing.T) {
+	t.Parallel()
+
+	prListJSON := `[
+		{"number": 5, "headRefName": "symphony/repo-42-fix-bug"},
+		{"number": 8, "headRefName": "feature/unrelated"},
+		{"number": 12, "headRefName": "symphony/repo-10-add-tests"}
+	]`
+
+	tests := []struct {
+		name        string
+		issueNumber int
+		prListJSON  string
+		wantCalls   int
+		wantReady   []string // args of the "pr ready" call, if any
+	}{
+		{
+			name:        "finds matching PR and calls gh pr ready",
+			issueNumber: 42,
+			prListJSON:  prListJSON,
+			wantCalls:   2, // pr list + pr ready
+			wantReady:   []string{"pr", "ready", "5", "--repo", "owner/repo"},
+		},
+		{
+			name:        "no matching PR returns no error",
+			issueNumber: 999,
+			prListJSON:  prListJSON,
+			wantCalls:   1, // pr list only
+		},
+		{
+			name:        "empty PR list returns no error",
+			issueNumber: 42,
+			prListJSON:  `[]`,
+			wantCalls:   1, // pr list only
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			callIdx := 0
+			runner := &mockRunner{}
+			// The runner returns prListJSON on the first call, empty on subsequent calls
+			origRun := runner.Run
+			_ = origRun
+
+			// Use a custom runner that returns different output per call
+			cr := &callTrackingRunner{
+				outputs: [][]byte{[]byte(tt.prListJSON), {}},
+			}
+
+			client := NewGitHubClient("owner/repo",
+				[]string{"symphony:todo"}, []string{"symphony:done"}, cr)
+
+			err := client.MarkPRReady(context.Background(), tt.issueNumber)
+			if err != nil {
+				t.Fatalf("MarkPRReady: %v", err)
+			}
+
+			if len(cr.calls) != tt.wantCalls {
+				t.Fatalf("got %d calls, want %d; calls: %v", len(cr.calls), tt.wantCalls, cr.calls)
+			}
+
+			if tt.wantReady != nil {
+				got := cr.calls[1]
+				if len(got) != len(tt.wantReady) {
+					t.Fatalf("ready args = %v, want %v", got, tt.wantReady)
+				}
+				for i, want := range tt.wantReady {
+					if got[i] != want {
+						t.Errorf("ready args[%d] = %q, want %q", i, got[i], want)
+					}
+				}
+			}
+			_ = callIdx
+		})
+	}
+}
+
+func TestMarkPRReadyListError(t *testing.T) {
+	t.Parallel()
+
+	runner := &mockRunner{err: fmt.Errorf("gh error")}
+	client := NewGitHubClient("owner/repo",
+		[]string{"symphony:todo"}, []string{"symphony:done"}, runner)
+
+	err := client.MarkPRReady(context.Background(), 42)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+// callTrackingRunner returns pre-configured outputs for sequential calls.
+type callTrackingRunner struct {
+	outputs [][]byte
+	calls   [][]string
+}
+
+func (r *callTrackingRunner) Run(_ context.Context, args []string) ([]byte, error) {
+	idx := len(r.calls)
+	r.calls = append(r.calls, args)
+	if idx < len(r.outputs) {
+		return r.outputs[idx], nil
+	}
+	return nil, nil
+}
+
 func intPtr(v int) *int { return &v }

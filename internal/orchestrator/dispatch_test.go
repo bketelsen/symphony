@@ -37,6 +37,9 @@ func (m *mockTracker) FetchIssueStatesByIDs(_ context.Context, ids []string) ([]
 func (m *mockTracker) FetchIssuesByStates(_ context.Context, _ []string) ([]domain.Issue, error) {
 	return nil, nil
 }
+func (m *mockTracker) AddLabel(_ context.Context, _ int, _ string) error    { return nil }
+func (m *mockTracker) RemoveLabel(_ context.Context, _ int, _ string) error { return nil }
+func (m *mockTracker) MarkPRReady(_ context.Context, _ int) error           { return nil }
 
 // mockExecutor for workspace
 type mockExecutor struct{}

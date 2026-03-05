@@ -21,6 +21,9 @@ func (noopTracker) FetchIssueStatesByIDs(_ context.Context, _ []string) ([]domai
 func (noopTracker) FetchIssuesByStates(_ context.Context, _ []string) ([]domain.Issue, error) {
 	return nil, nil
 }
+func (noopTracker) AddLabel(_ context.Context, _ int, _ string) error    { return nil }
+func (noopTracker) RemoveLabel(_ context.Context, _ int, _ string) error { return nil }
+func (noopTracker) MarkPRReady(_ context.Context, _ int) error           { return nil }
 
 func testDeps() Deps {
 	cfg := &config.Config{

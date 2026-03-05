@@ -118,11 +118,16 @@ func introspectRepo(ctx context.Context, runner tracker.CommandRunner) (*repoInf
 		return nil, fmt.Errorf("parse gh repo view output: %w", err)
 	}
 
+	branch := resp.DefaultBranchRef.Name
+	if branch == "" {
+		branch = "main"
+	}
+
 	return &repoInfo{
 		Owner:         resp.Owner.Login,
 		Name:          resp.Name,
 		SSHUrl:        resp.SSHURL,
-		DefaultBranch: resp.DefaultBranchRef.Name,
+		DefaultBranch: branch,
 	}, nil
 }
 

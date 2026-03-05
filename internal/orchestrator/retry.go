@@ -94,7 +94,7 @@ func (o *Orchestrator) handleRetryTimer(ctx context.Context, issueID string) {
 	}
 
 	// Check if we have slots
-	if o.AvailableSlots() <= 0 {
+	if o.availableSlots() <= 0 {
 		errMsg := "no available orchestrator slots"
 		o.deps.Logger.Info("retry deferred, no slots",
 			"issue_id", issueID,

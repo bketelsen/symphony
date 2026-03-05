@@ -12,7 +12,7 @@ import (
 
 // dispatch fetches candidates, filters, sorts, and launches workers up to available slots.
 func (o *Orchestrator) dispatch(ctx context.Context) {
-	slots := o.AvailableSlots()
+	slots := o.availableSlots()
 	if slots <= 0 {
 		return
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"maps"
+	"sync"
 	"time"
 
 	"github.com/bjk/symphony/internal/agent"
@@ -38,6 +39,7 @@ type OrchestratorState struct {
 
 // Orchestrator runs the main event loop.
 type Orchestrator struct {
+	mu     sync.RWMutex // protects state for Snapshot reads
 	state  OrchestratorState
 	deps   Deps
 	events chan domain.Event
@@ -70,8 +72,10 @@ func (o *Orchestrator) Events() chan<- domain.Event {
 	return o.events
 }
 
-// Snapshot returns a deep copy of the current state.
+// Snapshot returns a deep copy of the current state (safe for concurrent access).
 func (o *Orchestrator) Snapshot() OrchestratorState {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
 	return OrchestratorState{
 		PollIntervalMs:      o.state.PollIntervalMs,
 		MaxConcurrentAgents: o.state.MaxConcurrentAgents,
@@ -86,7 +90,14 @@ func (o *Orchestrator) Snapshot() OrchestratorState {
 }
 
 // AvailableSlots returns how many more workers can be started.
+// When called from the event loop (under mu.Lock), use availableSlots() instead.
 func (o *Orchestrator) AvailableSlots() int {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	return o.availableSlots()
+}
+
+func (o *Orchestrator) availableSlots() int {
 	slots := o.state.MaxConcurrentAgents - len(o.state.Running)
 	if slots < 0 {
 		return 0
@@ -120,8 +131,10 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 				return nil
 			}
 
+			o.mu.Lock()
 			switch e := event.(type) {
 			case domain.ShutdownEvent:
+				o.mu.Unlock()
 				o.deps.Logger.Info("orchestrator shutting down (shutdown event)")
 				return nil
 
@@ -146,6 +159,7 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 					close(e.ReplyCh)
 				}
 			}
+			o.mu.Unlock()
 		}
 	}
 }

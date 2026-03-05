@@ -71,7 +71,22 @@ func (o *Orchestrator) launchWorker(ctx context.Context, issue domain.Issue) {
 	}
 	o.state.Claimed[issue.ID] = struct{}{}
 
+	// Swap label: first active state (todo) → second active state (in-progress)
 	cfg, promptTemplate := o.deps.Config()
+	if len(cfg.Tracker.ActiveStates) >= 2 {
+		todoLabel := cfg.Tracker.ActiveStates[0]
+		inProgressLabel := cfg.Tracker.ActiveStates[1]
+		go func() {
+			bgCtx := context.Background()
+			if err := o.deps.Tracker.RemoveLabel(bgCtx, issue.Number, todoLabel); err != nil {
+				o.deps.Logger.Warn("failed to remove label", "issue_id", issue.ID, "label", todoLabel, "error", err)
+			}
+			if err := o.deps.Tracker.AddLabel(bgCtx, issue.Number, inProgressLabel); err != nil {
+				o.deps.Logger.Warn("failed to add label", "issue_id", issue.ID, "label", inProgressLabel, "error", err)
+			}
+		}()
+	}
+
 	key := workspace.SanitizeKey(issue.Identifier)
 
 	go func() {

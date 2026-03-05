@@ -47,6 +47,8 @@ You are working on issue {{ .Issue.Identifier }}: {{ .Issue.Title }}
 
 {{ if .Issue.Description }}{{ deref .Issue.Description }}{{ end }}
 
+When creating pull requests, always create them as drafts using `gh pr create --draft`.
+
 {{ if gt .Attempt 0 }}
 This is continuation attempt {{ .Attempt }}.
 Check the current state and continue where the previous session left off.

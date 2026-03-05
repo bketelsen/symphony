@@ -79,6 +79,14 @@ func (o *Orchestrator) refreshStates(ctx context.Context) {
 				"issue_identifier", issue.Identifier,
 				"state", issue.State,
 			)
+
+			// Mark PR ready for review
+			go func(num int, id string) {
+				if err := o.deps.Tracker.MarkPRReady(context.Background(), num); err != nil {
+					o.deps.Logger.Warn("failed to mark PR ready", "issue_id", id, "issue_number", num, "error", err)
+				}
+			}(issue.Number, issue.ID)
+
 			entry.State = domain.StateCanceledByReconciliation
 			if entry.Cancel != nil {
 				entry.Cancel()

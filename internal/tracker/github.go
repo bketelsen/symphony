@@ -51,25 +51,39 @@ type ghIssue struct {
 }
 
 func (c *GitHubClient) FetchCandidateIssues(ctx context.Context) ([]domain.Issue, error) {
-	args := []string{
-		"issue", "list",
-		"--repo", c.repo,
-		"--state", "open",
-		"--json", "id,number,title,body,state,url,createdAt,updatedAt,labels",
-		"--limit", "100",
+	// Query each active state label separately since gh --label is AND logic
+	seen := make(map[string]struct{})
+	var result []domain.Issue
+
+	for _, label := range c.activeStates {
+		args := []string{
+			"issue", "list",
+			"--repo", c.repo,
+			"--state", "open",
+			"--json", "id,number,title,body,state,url,createdAt,updatedAt,labels",
+			"--limit", "100",
+			"--label", label,
+		}
+
+		out, err := c.runner.Run(ctx, args)
+		if err != nil {
+			return nil, fmt.Errorf("tracker: fetch candidates: %w", err)
+		}
+
+		issues, err := c.parseIssues(out)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, issue := range issues {
+			if _, ok := seen[issue.ID]; !ok {
+				seen[issue.ID] = struct{}{}
+				result = append(result, issue)
+			}
+		}
 	}
 
-	// Add label filters for active states
-	for _, state := range c.activeStates {
-		args = append(args, "--label", state)
-	}
-
-	out, err := c.runner.Run(ctx, args)
-	if err != nil {
-		return nil, fmt.Errorf("tracker: fetch candidates: %w", err)
-	}
-
-	return c.parseIssues(out)
+	return result, nil
 }
 
 func (c *GitHubClient) FetchIssueStatesByIDs(ctx context.Context, ids []string) ([]domain.Issue, error) {

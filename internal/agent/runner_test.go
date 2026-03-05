@@ -114,7 +114,7 @@ func TestRunTurnCommandAssembly(t *testing.T) {
 	if !strings.Contains(args, "--model sonnet") {
 		t.Errorf("missing --model sonnet in args: %v", call.Args)
 	}
-	if !strings.Contains(args, "-p do something") {
+	if !strings.Contains(args, "do something") {
 		t.Errorf("missing prompt in args: %v", call.Args)
 	}
 }
@@ -304,7 +304,7 @@ func TestBuildArgs(t *testing.T) {
 
 	args := runner.buildArgs("hello world")
 
-	expected := []string{"--print", "-p", "hello world", "--model", "opus", "--max-tokens", "16000", "--permission-mode", "auto", "--allowedTools", "bash"}
+	expected := []string{"--print", "hello world", "--model", "opus", "--max-tokens", "16000", "--permission-mode", "auto", "--allowedTools", "bash"}
 	if len(args) != len(expected) {
 		t.Fatalf("got %d args, want %d: %v", len(args), len(expected), args)
 	}

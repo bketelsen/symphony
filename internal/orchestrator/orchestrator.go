@@ -190,6 +190,12 @@ func (o *Orchestrator) handleAgentUpdate(e domain.AgentUpdateEvent) {
 
 	o.logEvent("turn_completed", e.IssueID, entry.IssueIdentifier,
 		fmt.Sprintf("turn %d: %s", e.TurnCount, truncateStr(e.LastMessage, 80)))
+
+	o.deps.Logger.Info("agent update",
+		"issue_id", e.IssueID,
+		"turn", e.TurnCount,
+		"event", e.LastEvent,
+	)
 }
 
 func (o *Orchestrator) handleWorkflowReload(ticker *time.Ticker) {

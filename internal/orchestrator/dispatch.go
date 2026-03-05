@@ -114,13 +114,16 @@ func (o *Orchestrator) runWorker(
 	cfg *config.Config,
 ) error {
 	// Create workspace
+	o.deps.Logger.Info("creating workspace", "issue_id", issue.ID, "key", key)
 	wsPath, created, err := o.deps.Workspace.Create(ctx, key)
 	if err != nil {
 		return err
 	}
+	o.deps.Logger.Info("workspace ready", "issue_id", issue.ID, "path", wsPath, "created", created)
 
 	// Run after_create hook if workspace was just created
 	if created && o.deps.Hooks != nil {
+		o.deps.Logger.Info("running after_create hook", "issue_id", issue.ID)
 		if _, err := o.deps.Hooks.RunHook(ctx, "after_create", wsPath); err != nil {
 			return err
 		}
@@ -128,6 +131,7 @@ func (o *Orchestrator) runWorker(
 
 	// Run before_run hook
 	if o.deps.Hooks != nil {
+		o.deps.Logger.Info("running before_run hook", "issue_id", issue.ID)
 		if _, err := o.deps.Hooks.RunHook(ctx, "before_run", wsPath); err != nil {
 			return err
 		}
@@ -138,6 +142,13 @@ func (o *Orchestrator) runWorker(
 	if entry, ok := o.state.RetryAttempts[issue.ID]; ok {
 		attempt = entry.Attempt
 	}
+
+	// Update state to running
+	o.events <- domain.AgentUpdateEvent{
+		IssueID:   issue.ID,
+		LastEvent: "agent_starting",
+	}
+	o.deps.Logger.Info("starting agent session", "issue_id", issue.ID, "attempt", attempt, "max_turns", cfg.Agent.MaxTurns)
 
 	// Run agent session
 	err = o.deps.Agent.RunSession(ctx, agent.SessionParams{

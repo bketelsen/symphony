@@ -123,7 +123,9 @@ func (r *Runner) RunSession(ctx context.Context, params SessionParams) error {
 		}
 
 		// Execute turn
+		r.logger.Info("starting turn", "issue_id", params.Issue.ID, "turn", turn, "max_turns", params.MaxTurns)
 		output, err := r.RunTurn(ctx, prompt, params.WorkDir)
+		r.logger.Info("turn completed", "issue_id", params.Issue.ID, "turn", turn, "output_len", len(output), "error", err)
 
 		// Send update event
 		if params.Updates != nil {
@@ -180,7 +182,7 @@ func (r *Runner) buildArgs(prompt string) []string {
 		args = append(args, parts[1:]...)
 	}
 
-	args = append(args, "-p", prompt)
+	args = append(args, prompt)
 
 	if r.model != "" {
 		args = append(args, "--model", r.model)

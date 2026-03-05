@@ -14,13 +14,10 @@ import (
 type execCommandRunner struct{}
 
 func (e *execCommandRunner) Run(ctx context.Context, args []string) ([]byte, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("exec: no command")
-	}
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	cmd := exec.CommandContext(ctx, "gh", args...)
 	out, err := cmd.Output()
 	if err != nil {
-		return out, fmt.Errorf("exec %s: %w", args[0], err)
+		return out, fmt.Errorf("exec gh %s: %w", strings.Join(args, " "), err)
 	}
 	return out, nil
 }

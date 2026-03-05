@@ -16,7 +16,16 @@ type stateResponse struct {
 	RetryQueue          []retryJSON      `json:"retry_queue"`
 	CompletedCount      int              `json:"completed_count"`
 	AgentTotals         agentTotalsJSON  `json:"agent_totals"`
+	EventLog            []eventJSON      `json:"event_log"`
 	Uptime              string           `json:"uptime"`
+}
+
+type eventJSON struct {
+	Timestamp  string `json:"timestamp"`
+	IssueID    string `json:"issue_id"`
+	Identifier string `json:"identifier"`
+	Kind       string `json:"kind"`
+	Message    string `json:"message"`
 }
 
 type runningJSON struct {
@@ -75,6 +84,18 @@ func (s *Server) handleAPIState(w http.ResponseWriter, _ *http.Request) {
 		})
 	}
 
+	events := make([]eventJSON, 0, len(snap.EventLog))
+	for i := len(snap.EventLog) - 1; i >= 0; i-- {
+		e := snap.EventLog[i]
+		events = append(events, eventJSON{
+			Timestamp:  e.Timestamp.Format(time.RFC3339),
+			IssueID:    e.IssueID,
+			Identifier: e.Identifier,
+			Kind:       e.Kind,
+			Message:    e.Message,
+		})
+	}
+
 	resp := stateResponse{
 		PollIntervalMs:      snap.PollIntervalMs,
 		MaxConcurrentAgents: snap.MaxConcurrentAgents,
@@ -87,7 +108,8 @@ func (s *Server) handleAPIState(w http.ResponseWriter, _ *http.Request) {
 			TotalTokens:    snap.AgentTotals.TotalTokens,
 			SecondsRunning: snap.AgentTotals.SecondsRunning,
 		},
-		Uptime: time.Since(snap.StartedAt).Round(time.Second).String(),
+		EventLog: events,
+		Uptime:   time.Since(snap.StartedAt).Round(time.Second).String(),
 	}
 
 	writeJSON(w, http.StatusOK, resp)

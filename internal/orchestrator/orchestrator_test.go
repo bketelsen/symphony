@@ -25,7 +25,7 @@ func (noopTracker) FetchIssuesByStates(_ context.Context, _ []string) ([]domain.
 func testDeps() Deps {
 	cfg := &config.Config{
 		Polling: config.PollingConfig{IntervalMs: 100},
-		Agent:   config.AgentConfig{MaxConcurrentAgents: 5},
+		Agent:   config.AgentConfig{MaxConcurrentAgents: 5, MaxRetryBackoffMs: 300000},
 		Claude:  config.ClaudeConfig{StallTimeoutMs: 300000},
 	}
 	return Deps{
@@ -110,8 +110,9 @@ func TestWorkerExitRemovesRunning(t *testing.T) {
 	if _, ok := snap.Running["I_1"]; ok {
 		t.Error("running entry should be removed after WorkerExitEvent")
 	}
-	if _, ok := snap.Claimed["I_1"]; ok {
-		t.Error("claimed entry should be removed after WorkerExitEvent")
+	// Claimed is maintained for retry scheduling (continuation retry)
+	if _, ok := snap.Claimed["I_1"]; !ok {
+		t.Error("claimed entry should be maintained for retry")
 	}
 }
 

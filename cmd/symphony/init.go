@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -63,7 +64,7 @@ func runInit(args []string, stdout, stderr *os.File) error {
 }
 
 // initWorkflow is the core logic for the init command, testable via mock runner.
-func initWorkflow(ctx context.Context, runner tracker.CommandRunner, opts initOptions, stdout *os.File) error {
+func initWorkflow(ctx context.Context, runner tracker.CommandRunner, opts initOptions, w io.Writer) error {
 	// Check if WORKFLOW.md already exists
 	if _, err := os.Stat("WORKFLOW.md"); err == nil && !opts.Force {
 		return fmt.Errorf("WORKFLOW.md already exists (use --force to overwrite)")
@@ -76,23 +77,23 @@ func initWorkflow(ctx context.Context, runner tracker.CommandRunner, opts initOp
 	}
 
 	repoSlug := repo.Owner + "/" + repo.Name
-	fmt.Fprintf(stdout, "Repository: %s\n", repoSlug)
-	fmt.Fprintf(stdout, "SSH URL:    %s\n", repo.SSHUrl)
-	fmt.Fprintf(stdout, "Branch:     %s\n", repo.DefaultBranch)
+	fmt.Fprintf(w, "Repository: %s\n", repoSlug)
+	fmt.Fprintf(w, "SSH URL:    %s\n", repo.SSHUrl)
+	fmt.Fprintf(w, "Branch:     %s\n", repo.DefaultBranch)
 
 	// Generate and write WORKFLOW.md
 	content := generateWorkflow(repoSlug, repo.SSHUrl, repo.DefaultBranch, opts.WorkspaceRoot)
 	if err := os.WriteFile("WORKFLOW.md", []byte(content), 0644); err != nil {
 		return fmt.Errorf("write WORKFLOW.md: %w", err)
 	}
-	fmt.Fprintf(stdout, "\nWrote WORKFLOW.md\n")
+	fmt.Fprintf(w, "\nWrote WORKFLOW.md\n")
 
 	// Ensure labels exist
-	if err := ensureLabels(ctx, runner, repoSlug, stdout); err != nil {
+	if err := ensureLabels(ctx, runner, repoSlug, w); err != nil {
 		return fmt.Errorf("ensure labels: %w", err)
 	}
 
-	fmt.Fprintf(stdout, "\nDone! Review WORKFLOW.md and run: symphony\n")
+	fmt.Fprintf(w, "\nDone! Review WORKFLOW.md and run: symphony\n")
 	return nil
 }
 
@@ -193,7 +194,7 @@ type ghLabelEntry struct {
 }
 
 // ensureLabels checks for missing labels and creates them.
-func ensureLabels(ctx context.Context, runner tracker.CommandRunner, repo string, w *os.File) error {
+func ensureLabels(ctx context.Context, runner tracker.CommandRunner, repo string, w io.Writer) error {
 	// Get existing labels
 	out, err := runner.Run(ctx, []string{"label", "list", "--repo", repo, "--json", "name", "--limit", "100"})
 	if err != nil {

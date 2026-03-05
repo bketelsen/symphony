@@ -36,6 +36,8 @@ func run(args []string, stdout, stderr *os.File) error {
 	// Subcommand routing
 	if len(args) > 0 {
 		switch args[0] {
+		case "init":
+			return runInit(args[1:], stdout, stderr)
 		case "create-issues":
 			return runCreateIssues(args[1:], stdout, stderr)
 		}

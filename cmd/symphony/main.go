@@ -32,7 +32,15 @@ func main() {
 	}
 }
 
-func run(args []string, _, stderr *os.File) error {
+func run(args []string, stdout, stderr *os.File) error {
+	// Subcommand routing
+	if len(args) > 0 {
+		switch args[0] {
+		case "create-issues":
+			return runCreateIssues(args[1:], stdout, stderr)
+		}
+	}
+
 	fs := flag.NewFlagSet("symphony", flag.ContinueOnError)
 	portFlag := fs.Int("port", 0, "HTTP dashboard port (overrides config)")
 	versionFlag := fs.Bool("version", false, "print version and exit")
@@ -158,6 +166,6 @@ func run(args []string, _, stderr *os.File) error {
 	cancel()
 	httpSrv.Shutdown(context.Background())
 
-	_ = stderr
+	_, _ = stdout, stderr
 	return nil
 }

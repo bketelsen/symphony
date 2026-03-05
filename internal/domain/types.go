@@ -143,6 +143,15 @@ func CalculateBackoff(attempt int, isContinuation bool, maxBackoffMs int) time.D
 	return time.Duration(ms) * time.Millisecond
 }
 
+// EventLogEntry records a notable event for the dashboard.
+type EventLogEntry struct {
+	Timestamp  time.Time
+	IssueID    string
+	Identifier string
+	Kind       string // "dispatched", "turn_completed", "worker_exit", "retry_scheduled", "stall_detected", "label_updated", "pr_ready"
+	Message    string
+}
+
 // Event is the interface for all orchestrator events.
 type Event interface {
 	eventTag()

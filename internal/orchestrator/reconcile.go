@@ -29,6 +29,7 @@ func (o *Orchestrator) detectStalls(now time.Time) {
 		}
 
 		if now.Sub(lastActivity) > timeout {
+			o.logEvent("stall_detected", id, entry.IssueIdentifier, "no activity for "+now.Sub(lastActivity).Round(time.Second).String())
 			o.deps.Logger.Warn("stall detected, cancelling worker",
 				"issue_id", id,
 				"issue_identifier", entry.IssueIdentifier,

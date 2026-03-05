@@ -97,6 +97,8 @@ func (o *Orchestrator) launchWorker(ctx context.Context, issue domain.Issue) {
 		}
 	}()
 
+	o.logEvent("dispatched", issue.ID, issue.Identifier, "worker launched, session "+sessionID)
+
 	o.deps.Logger.Info("worker launched",
 		"issue_id", issue.ID,
 		"issue_identifier", issue.Identifier,

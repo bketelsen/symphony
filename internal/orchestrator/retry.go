@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/bjk/symphony/internal/domain"
@@ -33,6 +34,7 @@ func (o *Orchestrator) handleWorkerExit(e domain.WorkerExitEvent) {
 		o.deps.Logger.Info("worker completed normally, scheduling continuation",
 			"issue_id", e.IssueID,
 		)
+		o.logEvent("worker_exit", e.IssueID, identifier, "completed normally")
 		o.scheduleRetry(e.IssueID, identifier, 1, nil, true)
 	} else {
 		// Error exit → exponential backoff
@@ -46,6 +48,7 @@ func (o *Orchestrator) handleWorkerExit(e domain.WorkerExitEvent) {
 			"error", errMsg,
 			"attempt", prevAttempt+1,
 		)
+		o.logEvent("worker_exit", e.IssueID, identifier, "failed: "+truncateStr(errMsg, 80))
 		o.scheduleRetry(e.IssueID, identifier, prevAttempt+1, &errMsg, false)
 	}
 }
@@ -67,6 +70,12 @@ func (o *Orchestrator) scheduleRetry(issueID, identifier string, attempt int, er
 
 	// Keep the claim so dispatch doesn't pick it up
 	o.state.Claimed[issueID] = struct{}{}
+
+	kind := "retry_scheduled"
+	if isContinuation {
+		kind = "continuation_scheduled"
+	}
+	o.logEvent(kind, issueID, identifier, fmt.Sprintf("attempt %d, due in %s", attempt, delay.Round(time.Second)))
 
 	o.deps.Logger.Info("retry scheduled",
 		"issue_id", issueID,

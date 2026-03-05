@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"maps"
 	"sync"
@@ -34,6 +35,7 @@ type OrchestratorState struct {
 	RetryAttempts       map[string]*domain.RetryEntry
 	Completed           map[string]struct{}
 	AgentTotals         domain.AgentTotals
+	EventLog            []domain.EventLogEntry
 	StartedAt           time.Time
 }
 
@@ -85,6 +87,7 @@ func (o *Orchestrator) Snapshot() OrchestratorState {
 		RetryAttempts:       copyRetryMap(o.state.RetryAttempts),
 		Completed:           maps.Clone(o.state.Completed),
 		AgentTotals:         o.state.AgentTotals,
+		EventLog:            copyEventLog(o.state.EventLog),
 		StartedAt:           o.state.StartedAt,
 	}
 }
@@ -175,6 +178,7 @@ func (o *Orchestrator) handleAgentUpdate(e domain.AgentUpdateEvent) {
 		return
 	}
 	now := time.Now()
+	entry.State = domain.StateStreamingTurn
 	entry.TurnCount = e.TurnCount
 	entry.LastEventAt = &now
 	lastEvent := e.LastEvent
@@ -183,6 +187,9 @@ func (o *Orchestrator) handleAgentUpdate(e domain.AgentUpdateEvent) {
 	entry.LastMessage = &lastMessage
 	entry.InputTokens = e.InputTokens
 	entry.OutputTokens = e.OutputTokens
+
+	o.logEvent("turn_completed", e.IssueID, entry.IssueIdentifier,
+		fmt.Sprintf("turn %d: %s", e.TurnCount, truncateStr(e.LastMessage, 80)))
 }
 
 func (o *Orchestrator) handleWorkflowReload(ticker *time.Ticker) {
@@ -216,4 +223,37 @@ func copyRetryMap(m map[string]*domain.RetryEntry) map[string]*domain.RetryEntry
 		out[k] = &cp
 	}
 	return out
+}
+
+func copyEventLog(log []domain.EventLogEntry) []domain.EventLogEntry {
+	if log == nil {
+		return nil
+	}
+	out := make([]domain.EventLogEntry, len(log))
+	copy(out, log)
+	return out
+}
+
+const maxEventLogSize = 100
+
+// logEvent appends an event to the event log, capping at maxEventLogSize.
+func (o *Orchestrator) logEvent(kind, issueID, identifier, message string) {
+	entry := domain.EventLogEntry{
+		Timestamp:  time.Now(),
+		IssueID:    issueID,
+		Identifier: identifier,
+		Kind:       kind,
+		Message:    message,
+	}
+	o.state.EventLog = append(o.state.EventLog, entry)
+	if len(o.state.EventLog) > maxEventLogSize {
+		o.state.EventLog = o.state.EventLog[len(o.state.EventLog)-maxEventLogSize:]
+	}
+}
+
+func truncateStr(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
 }
